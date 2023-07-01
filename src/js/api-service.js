@@ -6,7 +6,7 @@ export default async function getFetch(Npage, perPage, searchResponse) {
 
   try {
     const params = new URLSearchParams({
-      image_types: 'photo',
+      image_type: 'photo',
       orientation: 'horizontal',
       q: searchResponse,
       page: Npage,

@@ -4,20 +4,15 @@ import SimpleLightbox from 'simplelightbox';
 import "simplelightbox/dist/simple-lightbox.min.css";
 import createMarkup from './js/list-photos-markup';
 import smoothScroll from './js/smooth-scroll'
-import getFetch from './js/api-service'
-
-// variables
-
-// variables
-
+import getFetch from './js/api-service';
 const axios = require('axios').default;
 
 const forma = document.querySelector('.search-form');
-const list = document.querySelector('.search-list-js')
-const inputSer = document.querySelector('input[name="searchQuery"]')
+const list = document.querySelector('.search-list-js');
+const inputSer = document.querySelector('input[name="searchQuery"]');
 const target = document.querySelector('.js-guard');
 
-let perPage = 40
+let perPage = 40;
 let gallerySlider;
 
 let options = {
@@ -26,17 +21,27 @@ let options = {
   threshold: 1.0
 };
 
-let observer = null; // Початково не створюємо IntersectionObserver
-let currentPage = 1
+let observer = null;
+let currentPage = 1;
 let currentPageOnLoad = 1;
 
 forma.addEventListener('submit', onClickSubmit);
 
-function onClickSubmit(event) {
+async function onClickSubmit(event) {
   event.preventDefault();
   currentPage = 1;
-  currentPageOnLoad = 1; // Скидаємо значення currentPageOnLoad при кожному новому пошуку
-  getImages(1, 40);
+  currentPageOnLoad = 1;
+  observer = null;
+  await clearList(); // Очистка списку перед новим пошуком
+  await getImages(1, perPage);
+  console.log(currentPage);
+  console.log(currentPageOnLoad);
+}
+
+async function clearList() {
+  while (list.firstChild) {
+    list.removeChild(list.firstChild);
+  }
 }
 
 async function getImages(page, perPage) {
@@ -44,24 +49,26 @@ async function getImages(page, perPage) {
     return Notiflix.Notify.failure(`Request cannot be empty`);
   }
 
+  currentPage = page;
+  currentPageOnLoad = page;
+
   try {
-    const response = await getFetch(page, perPage, inputSer.value.trim());
+    console.log(currentPageOnLoad);
+    console.log(perPage);
+    const response = await getFetch(currentPageOnLoad, perPage, inputSer.value.trim());
 
     if (response.data.hits.length === 0) {
       Notiflix.Notify.failure(`Oooops! No images found for query <i>'${inputSer.value}</i>'`);
-      list.innerHTML = `<p>Oooops! No images found for query <i>'${inputSer.value}</i>'. Try again!</p>`
+      list.innerHTML = `<p>Oooops! No images found for query <i>'${inputSer.value}</i>'. Try again!</p>`;
       return;
     }
 
     Notiflix.Notify.success(`Hooray! We found ${response.data.totalHits} images`);
 
     list.innerHTML = createMarkup(response.data.hits);
-
+    console.log(perPage);
     if (response.data.totalHits > perPage) {
-      // Створюємо IntersectionObserver тільки після другого пошуку
-      if (observer === null) {
-        observer = new IntersectionObserver(onLoad, options);
-      }
+      observer = new IntersectionObserver(onLoad, options);
       observer.observe(target);
     }
 
@@ -71,32 +78,38 @@ async function getImages(page, perPage) {
       navText: ['❮', '❯']
     });
 
-    currentPageOnLoad = page; // Оновлення значення currentPageOnLoad
+    currentPageOnLoad = page;
+    console.log(currentPageOnLoad);
+    console.log(page);
 
   } catch (error) {
     console.error(error);
   }
 }
 
-function onLoad(entries, observer) {
-  entries.forEach(entry => {
+async function onLoad(entries, observer) {
+  entries.forEach(async entry => {
     if (entry.isIntersecting) {
       currentPageOnLoad += 1;
-      getFetch(currentPageOnLoad, perPage, inputSer.value.trim())
-        .then(response => {
-          list.insertAdjacentHTML('beforeend', createMarkup(response.data.hits));
-          gallerySlider.refresh();
-          if (currentPageOnLoad * perPage >= response.data.totalHits) {
-            setTimeout(() => {
-              Notiflix.Notify.info(`We're sorry, but you've reached the end of search results`);
-            }, 2000);
-            observer.unobserve(target);
-            return;
-          }
-          observer.observe(target);
-          smoothScroll();
-        })
-        .catch(err => console.log(err));
+      console.log('tt', currentPageOnLoad);
+      console.log(perPage);
+      try {
+        const response = await getFetch(currentPageOnLoad, perPage, inputSer.value.trim());
+        list.insertAdjacentHTML('beforeend', createMarkup(response.data.hits));
+        gallerySlider.refresh();
+        if (currentPageOnLoad * perPage >= response.data.totalHits && currentPage !== 2) {
+          setTimeout(() => {
+            Notiflix.Notify.info(`We're sorry, but you've reached the end of search results`);
+          }, 2000);
+          observer.unobserve(target);
+          return;
+        }
+        observer.observe(target);
+        smoothScroll();
+      } catch (error) {
+        console.log(error);
+      }
     }
   });
 }
+
