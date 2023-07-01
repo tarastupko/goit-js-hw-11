@@ -1,16 +1,16 @@
+
 import './css/style.css';
 import Notiflix from 'notiflix';
 import SimpleLightbox from 'simplelightbox';
 import "simplelightbox/dist/simple-lightbox.min.css";
-import createMarkup from './script/list-photos-markup';
-import smoothScroll from './script/smooth-scroll'
+import createMarkup from './js/list-photos-markup';
+import smoothScroll from './js/smooth-scroll'
+import getFetch from './js/api-service'
 
 // variables
 
 const axios = require('axios').default;
 
-const API_KEY = `37981342-0f90df91f416340ea3cce758a`;
-const BASE_URL = `https://pixabay.com/api/`
 
 const forma = document.querySelector('.search-form');
 const list = document.querySelector('.search-list-js')
@@ -41,22 +41,7 @@ function onClickSubmit(event) {
   getImages(1, 40)
 }
 
-async function getFetch(page, perPage) {    
-  try {
-    const params = new URLSearchParams({
-      image_types: 'photo',
-      orientation: 'horizontal',
-      safesearch: 'true',
-      per_page: perPage,
-      page,
-    })
-    const searchResponse = inputSer.value.trim()
-    const response = axios.get(`${BASE_URL}?key=${API_KEY}&q=${searchResponse}&${params}`)
-    return response
-  } catch (error) {
-    console.error(error);
-  }
-  }
+
 
 async function getImages(page, perPage) {
 
@@ -65,7 +50,8 @@ async function getImages(page, perPage) {
 }
 
   try {
-    const response = await getFetch(page, perPage);
+    const searchResponse = inputSer.value.trim()
+    const response = await getFetch(page, perPage,searchResponse);
     
         if (response.data.hits.length === 0) {
           Notiflix.Notify.failure(`Oooops! No images found for query <i>'${inputSer.value}</i>'`);
@@ -77,9 +63,15 @@ async function getImages(page, perPage) {
         
         console.log(response.data);
         
-        list.innerHTML = createMarkup(response.data.hits)
+    list.innerHTML = createMarkup(response.data.hits)
+    console.log(response.data.totalHits);
+    if (response.data.totalHits > perPage)
+    {
+      observer.observe(target);
+  }
+      
         
-        observer.observe(target);
+        
             
         gallerySlider = new SimpleLightbox('.gallery a',
           { captionsData: 'alt', captionDelay: 950, navText: ['❮', '❯'] });
@@ -88,26 +80,33 @@ async function getImages(page, perPage) {
             console.error(erorr)
         }
 }
-
+let currentPageOnLoad = 2;
 function onLoad(entries, observer) {
+  
   entries.forEach(entry => {
     if (entry.isIntersecting) {
       console.log(entries);
-      currentPage += 1
-      getFetch(currentPage, perPage)
+      const searchResponse = inputSer.value.trim()
+      getFetch(currentPageOnLoad, perPage,searchResponse)
           .then(response => {
           console.log();
               list.insertAdjacentHTML('beforeend', createMarkup(response.data.hits))
             gallerySlider.refresh()
-              if (currentPage * perPage >= response.data.totalHits && currentPage !== 2) {
+              if (currentPageOnLoad * perPage >= response.data.totalHits) {
               setTimeout(() => {
                 Notiflix.Notify.info(`We're sorry, but you've reached the end of search results`);
               }, 2000);
                 observer.unobserve(target)
                 return
-            }
-            
-            observer.observe(target);
+              }
+              else
+              {
+                currentPageOnLoad += 1
+            observer.observe(target); 
+                }
+             
+
+          
             
             smoothScroll()
             
